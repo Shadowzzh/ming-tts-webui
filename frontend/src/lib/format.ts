@@ -8,7 +8,28 @@ export const builtinLabels: Record<string, string> = { US_James: "詹姆斯 · �
 export const tagLabels: Record<string, string> = { "[Breathing]": "呼吸", "[Cough]": "咳嗽", "[Sigh]": "叹气", "[Laughter]": "笑声", "[Uhm]": "嗯", "[Surprise-ah]": "惊叹 · 啊", "[Surprise-oh]": "惊叹 · 哦", "[Dissatisfaction-hnn]": "不满 · 哼", "[Confirmation-en]": "确认 · 嗯", "[Question-ei]": "疑问 · 诶", "[Question-ah]": "疑问 · 啊", "[Question-en]": "疑问 · 嗯", "[Question-oh]": "疑问 · 哦", "[Question-huh]": "疑问 · 哈" }
 export const countText = (text: string) => Array.from(text).length
 export const isActive = (job: Job) => job.status === "queued" || job.status === "running"
-export const statusLabel = (job: Job) => ({ queued: "排队中", running: "生成中", completed: "已完成", failed: "生成失败", cancelled: "已取消" }[job.status] ?? job.status)
+export const statusLabel = (job: Job) => ({ queued: "排队中", running: job.phase === "cancelling" ? "正在停止" : "生成中", completed: "已完成", failed: "生成失败", cancelled: "已取消" }[job.status] ?? job.status)
+export const phaseLabel: Record<string, string> = { waiting_gpu: "等待 GPU 空闲", starting: "正在启动容器", running: "GPU 执行中（含模型加载）", cancelling: "正在停止 GPU 任务" }
+export function activeMessage(job: Job) {
+  if (job.status === "queued") return "任务已加入队列，等待 GPU 处理。"
+  if (job.phase === "cancelling") return "正在停止 GPU 任务，请稍候…"
+  if (job.phase === "waiting_gpu") return "GPU 正被其他任务占用，空闲后会自动开始。"
+  if (job.phase === "starting") return "已分配到 GPU，正在启动任务容器。"
+  if (job.phase === "running") return "GPU 正在执行任务（模型加载与合成都在容器内），完成后会自动显示音频。"
+  return "GPU 任务已提交，正在等待进度。"
+}
+// Only phases with real evidence are shown: executor UTC stamps (queue/container)
+// and the worker's own model-load / inference counters.
+export function timingsText(job: Job) {
+  const value = job.timings
+  if (!value) return ""
+  const parts: Array<[string, number | undefined]> = [
+    ["等待 GPU", value.queue_seconds], ["启动容器", value.container_seconds],
+    ["加载模型", value.model_load_seconds], ["推理", value.inference_seconds],
+  ]
+  return parts.filter((entry): entry is [string, number] => typeof entry[1] === "number" && entry[1] > 0.05)
+    .map(([label, seconds]) => `${label} ${seconds.toFixed(1)} 秒`).join(" · ")
+}
 export function duration(seconds: number | null | undefined) { if (seconds == null) return "—"; return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${Math.floor(seconds % 60).toString().padStart(2, "0")}` }
 export function dateTime(value: string) { return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) }
 export function snapshot(job: Job): Params { const { voice_id: _voiceId, ...params } = job.parameters; return { ...params, text: job.text } }

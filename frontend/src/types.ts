@@ -14,9 +14,17 @@ export interface Options {
   paralinguistic_tags: string[];
   limits: { max_text_length: number; max_upload_mb: number; max_reference_seconds: number; max_queue_size: number };
 }
+export type Backend = "local" | "ray"
+export type JobPhase = "waiting_gpu" | "starting" | "running" | "cancelling"
+export interface RayStatus { url: string; profile: string; reachable: boolean; dispatch_dir?: string; version?: string | null; error?: string | null }
+export interface JobTimings {
+  queue_seconds?: number; container_seconds?: number; model_load_seconds?: number;
+  inference_seconds?: number; total_seconds?: number;
+}
 export interface ServiceStatus {
   loaded: boolean; device: string; sample_rate: number;
-  gpu: { cuda_available: boolean; name?: string; memory_allocated_mb?: number; memory_reserved_mb?: number };
+  backend?: Backend; model_loading?: "per-job" | "loaded"; ray?: RayStatus;
+  gpu: { cuda_available?: boolean | null; name?: string; memory_allocated_mb?: number; memory_reserved_mb?: number; remote?: boolean };
   queue: { queued: number; running: number }; storage: { voices: number; jobs: number }; version: string;
 }
 export interface Upload { upload_id: string; filename: string; audio_url: string; duration_seconds: number; sample_rate: number }
@@ -32,6 +40,8 @@ export interface Job {
   created_at: string; started_at: string | null; finished_at: string | null; error: string | null;
   filename: string | null; audio_url: string | null; download_url: string | null; duration_seconds: number | null;
   sample_rate: number | null; elapsed_seconds: number | null; favorite: boolean;
+  backend?: Backend; phase?: JobPhase | null; timings?: JobTimings | null;
+  phase_detail?: { ray_status?: string; executor_state?: string | null } | null;
 }
 export interface JobList { items: Job[]; total: number }
 export type View = "studio" | "voices" | "history"

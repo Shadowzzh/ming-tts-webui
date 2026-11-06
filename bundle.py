@@ -35,7 +35,7 @@ def main():
                   for p in sorted((source / "frontend/dist").rglob("*")) if p.is_file()})
     files.update({name: source / name for name in ("LICENSE", "requirements-web.txt")})
     files.update({name: config / name for name in ("Dockerfile", "compose.yaml")})
-    manifest = {"version": "2.0.1", "upstream": "Kodeer/ming-tts-web@630933be275c5f5c60234f13ddd475848a2f741d",
+    manifest = {"version": "2.1.0", "upstream": "Kodeer/ming-tts-web@630933be275c5f5c60234f13ddd475848a2f741d",
                 "created_at": datetime.now().astimezone().isoformat(),
                 "sha256": {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}}
     args.output.parent.mkdir(parents=True, exist_ok=True)

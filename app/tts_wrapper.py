@@ -90,6 +90,11 @@ class TTSWrapper:
         return self._model is not None
 
     @property
+    def load_seconds(self):
+        """Seconds spent loading the checkpoint (``None`` until loaded)."""
+        return self._loaded_at
+
+    @property
     def sample_rate(self) -> int:
         if self._sample_rate is None:
             self.load()

@@ -29,7 +29,7 @@ from app.validation import (
     voice,
 )
 
-VERSION = "2.0.1"
+VERSION = "2.1.0"
 
 
 def create_app(settings=None, *, engine=None, start_worker=True):
@@ -43,6 +43,17 @@ def create_app(settings=None, *, engine=None, start_worker=True):
         STATIC_DIR=os.environ.get("MING_STATIC_DIR", str(base / "static")),
         MAX_CONTENT_LENGTH=MAX_UPLOAD_MB * 1024 * 1024,
         JSON_AS_ASCII=False,
+        # local (default) runs the model in this container; ray dispatches every
+        # task to the shared Ray GPU executor (see hosts/workhorse/ray-gpu).
+        BACKEND=os.environ.get("MING_BACKEND", "local"),
+        MODEL_PATH=os.environ.get("MING_MODEL_PATH", "/models/Ming-3.0-tts-0.5B"),
+        DEVICE=os.environ.get("MING_DEVICE", "cuda:0"),
+        RAY_JOBS_URL=os.environ.get("RAY_JOBS_URL", "http://ray-gpu-control:8265"),
+        RAY_PROFILE=os.environ.get("MING_RAY_PROFILE", "ming"),
+        DISPATCH_DIR=os.environ.get("GPU_DISPATCH_DIR", "/app/dispatch"),
+        INPUTS_DIR=os.environ.get("MING_INPUTS_DIR", "/inputs"),
+        RAY_TIMEOUT_SECONDS=os.environ.get("MING_RAY_TIMEOUT_SECONDS", "3600"),
+        RAY_POLL_SECONDS=os.environ.get("MING_RAY_POLL_SECONDS", "1.0"),
     )
     app.config.update(settings)
     provider = DefaultJSONProvider(app)
@@ -56,9 +67,8 @@ def create_app(settings=None, *, engine=None, start_worker=True):
     try:
         store = Store(state / "studio.sqlite3")
         if engine is None:
-            from app.runtime import MingEngine
-            engine = MingEngine(os.environ.get("MING_MODEL_PATH", "/models/Ming-3.0-tts-0.5B"),
-                                os.environ.get("MING_DEVICE", "cuda:0"))
+            from app.engines import build_engine
+            engine = build_engine(app.config)
         queue = JobQueue(store, engine, uploads, outputs, start=start_worker, lease=lease)
     except Exception:
         if lease:
@@ -136,7 +146,9 @@ def create_app(settings=None, *, engine=None, start_worker=True):
     @app.get("/api/status")
     def status():
         counts, storage = store.counts()
-        return jsonify(**engine.status(), queue=counts, storage=storage, version=VERSION)
+        state = engine.status()
+        state.setdefault("backend", queue.backend)
+        return jsonify(**state, queue=counts, storage=storage, version=VERSION)
 
     @app.post("/api/upload_prompt")
     def upload():
