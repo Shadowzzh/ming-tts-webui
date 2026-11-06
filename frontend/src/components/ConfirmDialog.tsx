@@ -1,0 +1,6 @@
+import { LoaderCircle } from "lucide-react"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+export interface Confirmation { title: string; description: string; confirm: () => Promise<boolean> }
+export function ConfirmDialog({ value, onClose, busy, error }: { value: Confirmation | null; onClose: () => void; busy: boolean; error?: string }) {
+  return <AlertDialog open={!!value} onOpenChange={open => { if (!open && !busy) onClose() }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{value?.title}</AlertDialogTitle><AlertDialogDescription>{value?.description}</AlertDialogDescription></AlertDialogHeader>{error && <p role="alert" className="text-xs text-destructive">{error}</p>}<AlertDialogFooter><AlertDialogCancel disabled={busy}>返回</AlertDialogCancel><AlertDialogAction disabled={busy} className="bg-destructive text-white hover:bg-destructive/90" onClick={event => { event.preventDefault(); void value?.confirm().then(ok => { if (ok) onClose() }) }}>{busy && <LoaderCircle className="size-4 animate-spin" />}确认删除</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+}
