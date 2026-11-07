@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import signal
 import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -29,7 +30,7 @@ from app.validation import (
     voice,
 )
 
-VERSION = "2.1.1"
+VERSION = "2.1.2"
 
 
 def create_app(settings=None, *, engine=None, start_worker=True):
@@ -297,9 +298,35 @@ def main():
     from waitress import serve
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     app = create_app()
-    serve(app, host=os.environ.get("MING_BIND", "127.0.0.1"),
-          port=int(os.environ.get("MING_PORT", "17863")), threads=8,
-          max_request_body_size=MAX_UPLOAD_MB * 1024 * 1024, channel_timeout=900)
+    queue = app.extensions["queue"]
+    stopping = False
+
+    def shutdown(signum, _frame):
+        nonlocal stopping
+        if stopping:
+            return
+        stopping = True
+        # Stop claiming work immediately, before Waitress drains HTTP threads.
+        # Signal handlers run on the main thread: do not wait for the worker here.
+        queue.stopping = True
+        app.logger.info("Shutdown requested by signal %s", signum)
+        # Waitress catches SystemExit and performs its bounded HTTP cleanup.
+        # An explicit handler also works when Python is the container's PID 1.
+        raise SystemExit(0)
+
+    previous = {sig: signal.signal(sig, shutdown) for sig in (signal.SIGTERM, signal.SIGINT)}
+    try:
+        serve(app, host=os.environ.get("MING_BIND", "127.0.0.1"),
+              port=int(os.environ.get("MING_PORT", "17863")), threads=8,
+              max_request_body_size=MAX_UPLOAD_MB * 1024 * 1024, channel_timeout=900)
+    finally:
+        try:
+            # Bounded join only: Ray work continues remotely and is re-attached
+            # on restart. A still-active daemon keeps its lease until process exit.
+            queue.stop()
+        finally:
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
 
 
 if __name__ == "__main__":

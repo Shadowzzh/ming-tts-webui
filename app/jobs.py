@@ -74,6 +74,8 @@ class JobQueue:
 
     def submit(self, parameters, voice=None):
         with self.condition:
+            if self.stopping:
+                raise APIError("服务正在停止，请稍后重试", 503)
             queued, _ = self.store.counts()
             if queued["queued"] >= MAX_QUEUE:
                 raise APIError("等待队列已满，请在已有任务完成后再提交", 429)
@@ -128,6 +130,8 @@ class JobQueue:
         # final metadata). The local backend keeps the claim timestamp.
         started_at = None if getattr(self.engine, "reports_started_at", False) else now()
         with self.condition:
+            if self.stopping:
+                return None
             return self.store.claim_next(started_at)
 
     def run_one(self):

@@ -51,7 +51,7 @@ docker compose up -d --no-build
 | `MING_HOST_PORT` | `17863` | 宿主网页端口 |
 | `MING_BIND_ADDRESS` | `127.0.0.1` | 网页监听地址；局域网访问可显式改为 `0.0.0.0` |
 | `MING_GPU_DEVICE` | `nvidia.com/gpu=all` | CDI 设备；指定一张卡可填 `nvidia.com/gpu=0` |
-| `MING_IMAGE` | `ming-tts-webui:2.1.1` | 本地构建后的镜像标签 |
+| `MING_IMAGE` | `ming-tts-webui:2.1.2` | 本地构建后的镜像标签 |
 | `WEB_ASSETS` | `frontend` | 源码构建前端；发布包的示例配置使用 `bundled` |
 
 默认 Compose 明确选择 `MING_BACKEND=local`，没有外部网络、调度地址、Ray 安装步骤或其他项目的镜像。模型使用 PyTorch SDPA，不依赖 FlashAttention 或可选的 pynini 文本标准化。
@@ -103,6 +103,8 @@ python3 -m venv .venv
 
 真实本地运行需要 Dockerfile 中的 Ming 源码与模型依赖。HTTP 入口为 `python -u -m app.server`，单进程 Waitress。API 测试使用测试引擎；Ray 协议测试使用进程内假执行器，不能代替真实 GPU、挂载和进程回收验收。
 
+2.1.2 显式处理 SIGTERM/SIGINT：收到停止信号后不再领取任务或接受新提交（返回 503），Waitress 收尾后最多等待队列线程 5 秒。重复停止信号不会跳过清理。默认 Compose 继续使用 `init: true`；忙碌 HTTP 请求与原生库退出可能增加实际停机时间，5 秒不是生产硬上限。本地模式中未完成的生成在重启时标为失败、等待任务继续；可选 Ray 模式的远端任务保持执行，重启后重连同一个 submission，不因停止网页而取消或重复提交。
+
 | 路径 | 职责 |
 | --- | --- |
 | `app/server.py`、`app/validation.py` | HTTP API、上传、路径和参数校验 |
@@ -119,7 +121,7 @@ python3 -m venv .venv
 在源码仓库根目录执行：
 
 ```bash
-python3 bundle.py --output /tmp/ming-tts-webui-2.1.1.tar.gz
+python3 bundle.py --output /tmp/ming-tts-webui-2.1.2.tar.gz
 ```
 
 脚本运行 `npm ci` 和生产构建，默认日志目录在系统临时目录的 `ming-tts-webui-build-logs/`，可用 `--log-dir` 指定。已验证的 `frontend/dist` 可使用 `--skip-build`。

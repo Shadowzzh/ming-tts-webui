@@ -1,6 +1,6 @@
 services:
   ming-tts-web:
-    image: ${MING_IMAGE:-ming-tts-webui:2.1.1}
+    image: ${MING_IMAGE:-ming-tts-webui:2.1.2}
     build:
       context: .
       args:
