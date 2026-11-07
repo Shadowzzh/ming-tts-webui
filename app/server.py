@@ -29,7 +29,7 @@ from app.validation import (
     voice,
 )
 
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 
 def create_app(settings=None, *, engine=None, start_worker=True):
@@ -93,8 +93,18 @@ def create_app(settings=None, *, engine=None, start_worker=True):
         item["audio_url"] = f"/api/uploads/{item['upload_id']}" if item.get("upload_id") else None
         return item
 
+    def capabilities():
+        # Public behavior follows the active engine, including injected engines.
+        return {"cancel_running": bool(getattr(engine, "cancellable", False)),
+                "reports_progress": bool(getattr(engine, "supports_progress", False)),
+                "resume_running": queue.resumable}
+
     def public_job(item):
         item = dict(item)
+        # Derive this at response time; historical backend/flags are not authority.
+        item["can_cancel"] = item["status"] == "queued" or (
+            item["status"] == "running" and bool(getattr(engine, "cancellable", False))
+            and not item.get("cancel_requested") and item.get("phase") != "cancelling")
         filename = item.get("filename")
         item.update(audio_url=f"/api/audio/{filename}" if filename else None,
                     download_url=f"/api/download/{filename}" if filename else None)
@@ -148,6 +158,7 @@ def create_app(settings=None, *, engine=None, start_worker=True):
         counts, storage = store.counts()
         state = engine.status()
         state.setdefault("backend", queue.backend)
+        state["capabilities"] = capabilities()
         return jsonify(**state, queue=counts, storage=storage, version=VERSION)
 
     @app.post("/api/upload_prompt")

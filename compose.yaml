@@ -1,0 +1,38 @@
+services:
+  ming-tts-web:
+    image: ${MING_IMAGE:-ming-tts-webui:2.1.1}
+    build:
+      context: .
+      args:
+        WEB_ASSETS: ${WEB_ASSETS:-frontend}
+    init: true
+    restart: unless-stopped
+    environment:
+      MING_BACKEND: local
+      MING_MODEL_PATH: /models/Ming-3.0-tts-0.5B
+      MING_DEVICE: cuda:0
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    ports:
+      - "${MING_BIND_ADDRESS:-127.0.0.1}:${MING_HOST_PORT:-17863}:17863"
+    # Native CDI: Linux Docker Engine >=28.3, NVIDIA Container Toolkit with a CDI spec.
+    devices:
+      - "${MING_GPU_DEVICE:-nvidia.com/gpu=all}"
+    volumes:
+      - models:/models
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+      - state:/app/state
+    shm_size: 512m
+    stop_grace_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  models:
+  uploads:
+  outputs:
+  state:

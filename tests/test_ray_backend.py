@@ -495,14 +495,19 @@ def test_ray_backend_end_to_end_through_http(tmp_path):
         client = app.test_client()
         status = client.get("/api/status").get_json()
         assert status["backend"] == "ray" and status["ray"]["reachable"] is True
+        assert status["capabilities"] == {
+            "cancel_running": True, "reports_progress": True, "resume_running": True,
+        }
         upload_id = upload_reference(client, tmp_path)
         job = client.post("/api/jobs", json={"text": "你好", "upload_id": upload_id}).get_json()
         assert job["backend"] == "ray"
+        assert job["can_cancel"] is True
         assert app.extensions["queue"].run_one()
         saved = client.get(f"/api/jobs/{job['id']}").get_json()
         assert saved["status"] == "completed"
         assert saved["backend"] == "ray"
         assert saved["phase"] is None
+        assert saved["can_cancel"] is False
         assert saved["timings"]["total_seconds"] > 0
         assert saved["parameters"]["upload_id"] == upload_id  # history keeps the upload id
         request = json.loads((tmp_path / "dispatch" / job["id"] / "request.json").read_text())
@@ -540,8 +545,10 @@ def test_running_job_cancel_really_stops_ray(tmp_path):
         deadline = time.monotonic() + 5
         while not fake.submissions and time.monotonic() < deadline:
             time.sleep(0.02)
+        assert client.get(f"/api/jobs/{job['id']}").get_json()["can_cancel"] is True
         response = client.post(f"/api/jobs/{job['id']}/cancel")
         assert response.status_code == 200
+        assert response.get_json()["can_cancel"] is False
         worker.join(timeout=10)
         assert fake.stops, "cancelling a running task must stop the Ray job"
         saved = client.get(f"/api/jobs/{job['id']}").get_json()
@@ -692,6 +699,7 @@ def test_http_cancel_pending_keeps_task_in_cancelling(tmp_path):
         assert response.status_code == 200
         body = response.get_json()
         assert body["status"] == "running" and body["phase"] == "cancelling"
+        assert body["can_cancel"] is False
         app.extensions["queue"].stop()
 
 

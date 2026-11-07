@@ -1,0 +1,17 @@
+.git
+.venv
+.pytest_cache
+**/__pycache__
+frontend/node_modules
+frontend/dist
+frontend/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+models
+uploads
+outputs
+state
+dispatch
+tests
+*.tar.gz

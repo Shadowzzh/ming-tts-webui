@@ -7,3 +7,9 @@ frontend/*.tsbuildinfo
 uploads/
 outputs/
 state/
+models/
+dispatch/
+.env
+.env.*
+!.env.example
+*.tar.gz
