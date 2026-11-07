@@ -1,8 +1,8 @@
 """Public execution capabilities, using only fake engines and temporary storage."""
-import pytest
+import pytest  # pyright: ignore[reportMissingImports] -- available in the isolated test environment
+from test_studio import FakeEngine
 
 from app.server import create_app
-from test_studio import FakeEngine
 
 
 @pytest.fixture(params=[False, True], ids=["local", "capable-engine"])
@@ -52,7 +52,7 @@ def test_all_job_responses_report_current_cancel_capability(studio):
     assert client.patch(f"/api/jobs/{job_id}", json={"title": "改名"}).get_json()["can_cancel"] is capable
 
 
-@pytest.mark.parametrize("pending", [{"phase": "cancelling"}, {"cancel_requested": True}])
+@pytest.mark.parametrize("pending", [{"phase": "cancelling"}, {"phase": "postprocessing"}, {"cancel_requested": True}])
 def test_stop_in_progress_cannot_be_requested_again(studio, pending):
     app, client, _ = studio
     job = client.post("/api/jobs", json={"text": "停止中"}).get_json()

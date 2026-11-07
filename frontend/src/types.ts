@@ -7,6 +7,7 @@ export interface Params {
   ip?: string; emotion?: string; speed?: string; pitch?: string; volume?: string;
   dialect?: string; style?: string; cfg?: number; sigma?: number; temperature?: number;
   max_length?: number; max_decode_steps?: number; seed?: number; no_trim_silence?: boolean; raw_text?: boolean;
+  audio_postprocess?: "none" | "light_denoise_v1";
 }
 export interface Options {
   tasks: TaskOption[]; languages: Option[]; emotions: Option[]; speed: Option[]; pitch: Option[]; volume: Option[];
@@ -15,7 +16,7 @@ export interface Options {
   limits: { max_text_length: number; max_upload_mb: number; max_reference_seconds: number; max_queue_size: number };
 }
 export type Backend = "local" | "ray"
-export type JobPhase = "waiting_gpu" | "starting" | "running" | "cancelling"
+export type JobPhase = "waiting_gpu" | "starting" | "running" | "cancelling" | "postprocessing"
 export interface RayStatus { url: string; profile: string; reachable: boolean; dispatch_dir?: string; version?: string | null; error?: string | null }
 export interface JobTimings {
   queue_seconds?: number; container_seconds?: number; model_load_seconds?: number;

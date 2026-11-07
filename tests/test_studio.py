@@ -20,6 +20,10 @@ def wav_bytes(seconds=0.2):
 
 
 class FakeEngine:
+    cancellable = False
+    supports_progress = False
+    resumable = False
+
     def __init__(self):
         self.active = 0
         self.peak = 0

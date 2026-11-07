@@ -30,7 +30,7 @@ from app.validation import (
     voice,
 )
 
-VERSION = "2.1.2"
+VERSION = "2.1.3"
 
 
 def create_app(settings=None, *, engine=None, start_worker=True):
@@ -105,7 +105,7 @@ def create_app(settings=None, *, engine=None, start_worker=True):
         # Derive this at response time; historical backend/flags are not authority.
         item["can_cancel"] = item["status"] == "queued" or (
             item["status"] == "running" and bool(getattr(engine, "cancellable", False))
-            and not item.get("cancel_requested") and item.get("phase") != "cancelling")
+            and not item.get("cancel_requested") and item.get("phase") not in {"cancelling", "postprocessing"})
         filename = item.get("filename")
         item.update(audio_url=f"/api/audio/{filename}" if filename else None,
                     download_url=f"/api/download/{filename}" if filename else None)

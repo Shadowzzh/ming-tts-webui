@@ -104,6 +104,8 @@ class JobQueue:
                 job.update(status="cancelled", phase=None, finished_at=now())
                 self.store.put("jobs", job)
                 return job
+            if job.get("phase") == "postprocessing":
+                raise APIError("正在完成音频处理，请稍后查看结果", 409)
             if job["status"] != "running" or not getattr(self.engine, "cancellable", False):
                 raise APIError("仅等待中的任务可取消；正在生成的任务会继续完成", 409)
             job.update(cancel_requested=True, phase="cancelling")
@@ -185,6 +187,7 @@ class JobQueue:
         try:
             parameters = dict(job["parameters"])
             parameters.pop("voice_id", None)
+            audio_postprocess = parameters.pop("audio_postprocess", "none")
             if parameters.get("upload_id"):
                 parameters["prompt_wav_path"] = str(safe_file(self.uploads, parameters.pop("upload_id")))
             if report is None:
@@ -192,6 +195,15 @@ class JobQueue:
             else:
                 metadata = self.engine.generate(parameters, partial, job_id=job["id"],
                                                 on_state=report)
+            if audio_postprocess != "none":
+                from app.audio_processing import apply_audio_postprocess
+                with self.store.lock:
+                    current = self.store.get("jobs", job["id"]) or {}
+                    if current.get("cancel_requested"):
+                        raise RuntimeError("cancelled before audio processing")
+                    current["phase"] = "postprocessing"
+                    self.store.put("jobs", current)
+                metadata["audio_processing"] = apply_audio_postprocess(partial, audio_postprocess)
             partial.replace(target)
             outcome = {"status": "completed", "filename": filename, "phase": None, **metadata}
         except Exception as error:

@@ -86,6 +86,11 @@ def params(data, uploads: Path, *, require_text=True):
         result[key] = int(value) if integer else float(value)
     for key in ["use_spk_emb", "use_zero_spk_emb", "no_trim_silence", "raw_text"]:
         result[key] = boolean(data.get(key, False), key)
+    if "audio_postprocess" in data:
+        profile = data["audio_postprocess"]
+        if not isinstance(profile, str) or profile not in {"none", "light_denoise_v1"}:
+            raise APIError("不支持的音频后处理选项")
+        result["audio_postprocess"] = profile
     upload_id = data.get("upload_id")
     if upload_id:
         path = safe_file(uploads, upload_id)

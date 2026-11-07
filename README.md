@@ -9,6 +9,7 @@ Ming-3.0-tts 0.5B 的语音工作台，支持声音预设、生成历史和参�
 - 工作台：8 种生成模式、参考音上传与试听、文本导入、声音标签、随机种子和高级参数。
 - 声音库：保存克隆参考音、内置音色或声音设计，以及名称、备注、标签、收藏和默认参数。
 - 生成历史：试听、WAV 下载、搜索、收藏、改标题、恢复参数、重试和确认删除。
+- 可选轻度降噪：高级参数中开启并随预设保存，合成后在 CPU 上处理；默认关闭，适用于本地及远程后端。
 - 参数帮助：问号支持鼠标悬停、键盘聚焦和手机点击；页面内提供完整手册，也可读[参数说明](docs/参数说明.md)。
 - 持久任务队列：最多 12 个等待任务，单 worker 串行生成；刷新或离开网页后任务继续。
 - 桌面与手机布局、深浅主题、浏览器草稿、`Ctrl/Meta+Enter` 提交。
@@ -51,7 +52,7 @@ docker compose up -d --no-build
 | `MING_HOST_PORT` | `17863` | 宿主网页端口 |
 | `MING_BIND_ADDRESS` | `127.0.0.1` | 网页监听地址；局域网访问可显式改为 `0.0.0.0` |
 | `MING_GPU_DEVICE` | `nvidia.com/gpu=all` | CDI 设备；指定一张卡可填 `nvidia.com/gpu=0` |
-| `MING_IMAGE` | `ming-tts-webui:2.1.2` | 本地构建后的镜像标签 |
+| `MING_IMAGE` | `ming-tts-webui:2.1.3` | 本地构建后的镜像标签 |
 | `WEB_ASSETS` | `frontend` | 源码构建前端；发布包的示例配置使用 `bundled` |
 
 默认 Compose 明确选择 `MING_BACKEND=local`，没有外部网络、调度地址、Ray 安装步骤或其他项目的镜像。模型使用 PyTorch SDPA，不依赖 FlashAttention 或可选的 pynini 文本标准化。
@@ -121,7 +122,7 @@ python3 -m venv .venv
 在源码仓库根目录执行：
 
 ```bash
-python3 bundle.py --output /tmp/ming-tts-webui-2.1.2.tar.gz
+python3 bundle.py --output /tmp/ming-tts-webui-2.1.3.tar.gz
 ```
 
 脚本运行 `npm ci` 和生产构建，默认日志目录在系统临时目录的 `ming-tts-webui-build-logs/`，可用 `--log-dir` 指定。已验证的 `frontend/dist` 可使用 `--skip-build`。
@@ -129,6 +130,14 @@ python3 bundle.py --output /tmp/ming-tts-webui-2.1.2.tar.gz
 发布包包含应用、预编译静态资源、仓库内 Dockerfile/Compose、依赖、许可、部署说明和逐文件 SHA256 manifest；不打包录音、模型、数据库、缓存或仓库外的配置。包内 `.env.example` 设置 `WEB_ASSETS=bundled`，解压后复制为 `.env` 即可沿用上述部署命令，Docker 构建会直接使用静态资源。源码构建与发布包共用同一份推理环境定义。
 
 自定义部署可使用发布包中的应用和静态资源，但主机地址、GPU 池、网络、目录与个人基础镜像应留在部署仓库中。
+
+## 轻度降噪
+
+在高级参数开启「轻度降噪」，或设置 `audio_postprocess: "light_denoise_v1"`。它随声音预设与历史参数保存；`"none"` 或不提供该字段时不处理音频。恢复模型默认参数会关闭降噪。
+
+应用在模型合成完成后，使用现有 ffmpeg 与 NumPy 执行固定的 60 Hz 高通与温和 FFT 降噪，测量并补偿滤镜延迟，保持时长并尽量匹配原音量，峰值限制为 0.98。处理不会修改参考音；可能改变尾音、齿音和音色，需要试听选择。此选项与模型的 `sigma`、`temperature` 不同。
+
+处理阶段显示「降噪中」，此时等待短暂处理结束，不再提供运行取消。失败的处理不会将原始音频冒充为降噪结果；任务会失败并保留参数供重试。任务 API 的 `audio_processing` 保存实际滤镜、延迟、增益与采样信息。默认 API 测试仍无需 GPU；音频处理测试需要 ffmpeg 和 NumPy（推理镜像中已具备）。
 
 ## API 与限制
 

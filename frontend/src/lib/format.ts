@@ -9,13 +9,14 @@ export const tagLabels: Record<string, string> = { "[Breathing]": "呼吸", "[Co
 export const countText = (text: string) => Array.from(text).length
 export const isActive = (job: Job) => job.status === "queued" || job.status === "running"
 // Older servers only guarantee cancellation while the task is still queued.
-export const canCancel = (job: Job) => isActive(job) && job.phase !== "cancelling" && (job.can_cancel ?? job.status === "queued")
-export const phaseLabel: Record<string, string> = { waiting_gpu: "排队中", starting: "准备中", running: "生成中", cancelling: "正在停止" }
+export const canCancel = (job: Job) => isActive(job) && job.phase !== "cancelling" && job.phase !== "postprocessing" && (job.can_cancel ?? job.status === "queued")
+export const phaseLabel: Record<string, string> = { waiting_gpu: "排队中", starting: "准备中", running: "生成中", cancelling: "正在停止", postprocessing: "降噪中" }
 export const statusLabel = (job: Job) => ({ queued: "排队中", running: phaseLabel[job.phase ?? ""] ?? "生成中", completed: "已完成", failed: "生成失败", cancelled: "已取消" }[job.status] ?? job.status)
 export function activeMessage(job: Job) {
   if (job.status === "queued" || job.phase === "waiting_gpu") return "任务已加入队列，轮到后会自动开始。"
   if (job.phase === "cancelling") return "正在停止任务，请稍候…"
   if (job.phase === "starting") return "正在准备生成环境，请稍候。"
+  if (job.phase === "postprocessing") return "正在完成轻度降噪，处理后会自动显示音频。"
   return "正在生成音频，完成后会自动显示。"
 }
 // Only phases with real evidence are shown: executor UTC stamps (queue/container)

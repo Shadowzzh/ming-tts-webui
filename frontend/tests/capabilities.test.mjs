@@ -57,6 +57,7 @@ for (const [name, fields, expected] of [
   ["local without progress", { phase: null }, "生成中"],
   ["legacy without phase", { phase: undefined }, "生成中"],
   ["stopping", { phase: "cancelling" }, "正在停止"],
+  ["postprocessing", { phase: "postprocessing" }, "降噪中"],
 ]) test(`status label: ${name}`, () => assert.equal(format.statusLabel(job(fields)), expected))
 
 test("local running message says generation is in progress", () => {
@@ -83,6 +84,7 @@ for (const [name, fields, label] of [
   ["ray with capability", { backend: "ray", can_cancel: true }, "停止生成"],
   ["explicit queued denial", { status: "queued", can_cancel: false }, null],
   ["stopping", { phase: "cancelling", can_cancel: true }, null],
+  ["postprocessing", { phase: "postprocessing", can_cancel: true }, null],
   ["completed", { status: "completed", can_cancel: true }, null],
 ]) test(`cancel control: ${name}`, () => {
   const html = renderCard(job(fields))
